@@ -12,7 +12,7 @@ spec:
           - path: gitops/app-manifests/dev/*
   template:
     metadata:
-      name: 'argocd-{{path.basename}}'
+      name: 'dev-{{path.basename}}'
     spec:
       project: development
       source:
