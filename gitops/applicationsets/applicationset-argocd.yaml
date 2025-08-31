@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-argo
+  namespace: argocd
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/fabioffalcao/k8s.git
+        revision: main
+        directories:
+          - path: gitops/app-manifests/argocd/*
+  template:
+    metadata:
+      name: 'argocd-{{path.basename}}'
+    spec:
+      project: argocd
+      source:
+        repoURL: https://github.com/fabioffalcao/k8s.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: default
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

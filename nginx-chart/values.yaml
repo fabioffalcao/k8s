@@ -4,7 +4,9 @@
 
 replicaCount: 1
 
-fqdn: "nginx.local"
+ingress:
+  create: false
+  fqdn: "nginx.local"
 image:
   repository: nginx
   pullPolicy: IfNotPresent

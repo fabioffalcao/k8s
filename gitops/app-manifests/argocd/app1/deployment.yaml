@@ -3,23 +3,23 @@ kind: Deployment
 metadata:
   creationTimestamp: null
   labels:
-    app: nginx
+    app: nginx-local
     role: webserver
-  name: nginx
+  name: nginx-local
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: nginx
+      app: nginx-local
   strategy: {}
   template:
     metadata:
       creationTimestamp: null
       labels:
-        app: nginx
+        app: nginx-local
     spec:
       containers:
-      - image: nginx
+      - image: 192.168.121.14/local/nginx-custom:1.0
         name: nginx
         ports:
         - containerPort: 80

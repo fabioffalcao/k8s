@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: apps-dev
+  namespace: dev
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/fabioffalcao/k8s.git
+        revision: main
+        directories:
+          - path: gitops/app-manifests/dev/*
+  template:
+    metadata:
+      name: 'argocd-{{path.basename}}'
+    spec:
+      project: development
+      source:
+        repoURL: https://github.com/fabioffalcao/k8s.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://192.168.121.16:6443
+        namespace: dev
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
