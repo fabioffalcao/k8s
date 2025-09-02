@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helm-app1
+spec:
+  destination:
+    namespace: dev
+    server: https://192.168.121.16:6443
+  project: development
+  source:
+    chart: nginx-chart
+    repoURL: 192.168.121.14/helm
+    targetRevision: 0.1.0
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

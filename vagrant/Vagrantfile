@@ -1,0 +1,179 @@
+#DOCKER
+$script_docker = <<-SCRIPT
+echo Docker Prerequisites...
+# Add Docker's official GPG key:
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+# Add the repository to Apt sources:
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
+  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo Update source...
+sudo apt-get update
+echo Installing Docker packages...
+sudo apt-get install docker-ce docker-ce-cli containerd.io docker-compose -y
+sudo usermod -aG docker vagrant
+newgrp docker
+
+sudo systemctl enable docker
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+SCRIPT
+
+#KUBECTL
+$script_kubectl = <<-SCRIPT
+echo Installing kubectl...
+
+sudo apt-get update
+# apt-transport-https may be a dummy package; if so, you can skip that package
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg
+# If the folder `/etc/apt/keyrings` does not exist, it should be created before the curl command, read the note below.
+# sudo mkdir -p -m 755 /etc/apt/keyrings
+curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.33/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+sudo chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+# This overwrites any existing configuration in /etc/apt/sources.list.d/kubernetes.list
+echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.33/deb/ /' | sudo tee /etc/apt/sources.list.d/kubernetes.list
+sudo chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
+sudo apt-get update
+sudo apt-get install -y kubectl
+
+echo Kubectl Version...
+echo `kubectl version --client`
+
+echo "alias k='kubectl'" >> /home/vagrant/.bashrc
+SCRIPT
+
+#HARBOR
+$script_harbor = <<-SCRIPT
+echo Getting Harbor files...
+wget https://github.com/goharbor/harbor/releases/download/v2.13.2/harbor-online-installer-v2.13.2.tgz
+tar xzpvf harbor-online-installer-v2.13.2.tgz; cd harbor
+
+cat > /home/vagrant/san.cnf <<EOF
+[ req ]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+distinguished_name = dn
+x509_extensions    = v3_req
+
+[ dn ]
+CN = 192.168.121.14
+
+[ v3_req ]
+subjectAltName = @alt_names
+
+[ alt_names ]
+IP.1 = 192.168.121.14
+EOF
+
+sudo openssl req -newkey rsa:2048 -nodes -keyout /etc/ssl/private/harbor.key -x509 -days 3650 -out /etc/ssl/private/harbor.crt -config /home/vagrant/san.cnf
+
+SCRIPT
+
+#INSTALL KIND
+$script_install_kind = <<-SCRIPT
+echo Installing KIND...
+# For AMD64 / x86_64
+[ $(uname -m) = x86_64 ] && curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.29.0/kind-linux-amd64
+
+sudo chmod +x ./kind
+sudo mv ./kind /usr/local/bin/kind
+echo KIND Version...
+echo `kind version`
+
+echo Installing Cloud Provider KIND...
+curl -L https://github.com/kubernetes-sigs/cloud-provider-kind/releases/download/v0.7.0/cloud-provider-kind_0.7.0_linux_amd64.tar.gz -o /home/vagrant/cloud-provider-kind_0.7.0_linux_amd64.tar.gz
+sudo tar xzpvf /home/vagrant/cloud-provider-kind_0.7.0_linux_amd64.tar.gz -C /usr/local/bin
+sleep 3
+sudo /usr/local/bin/cloud-provider-kind -enable-lb-port-mapping &
+SCRIPT
+
+#CREATE KIND CLUSTER ARGOCD
+$script_create_kind_argocd = <<-SCRIPT
+cat <<EOF > /home/vagrant/kind.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: argocd
+networking:
+  apiServerAddress: "192.168.121.15"
+  apiServerPort: 6443
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."192.168.121.14"]
+      endpoint = ["http://192.168.121.14"]
+EOF
+
+kind create cluster --config /home/vagrant/argocd.yaml
+SCRIPT
+
+#KIND_DEVELOPMENT
+$script_create_kind_development = <<-SCRIPT
+cat <<EOF > /home/vagrant/development.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: development
+networking:
+  apiServerAddress: "192.168.121.16"
+  apiServerPort: 6443
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."192.168.121.14"]
+      endpoint = ["http://192.168.121.14"]
+EOF
+
+kind create cluster --config /home/vagrant/argocd.yaml
+SCRIPT
+
+Vagrant.configure("2") do |config|
+  config.vm.define "harbor" do |harbor|
+    harbor.vm.box = "generic/ubuntu2204"
+    harbor.vm.hostname = "harbor"
+    harbor.vm.network :private_network, ip: "192.168.121.14"
+    harbor.vm.provision "shell", inline: $script_docker, run: "once"
+    harbor.vm.provision "shell", inline: $script_harbor, run: "once"
+  end
+
+  config.vm.define "argocd" do |argocd|
+    argocd.vm.box = "generic/ubuntu2204"
+    argocd.vm.hostname = "argocd"
+    argocd.vm.network :private_network, ip: "192.168.121.15"
+    argocd.vm.provision "shell", inline: $script_kubectl, run: "once"
+    argocd.vm.provision "shell", inline: $script_docker, run: "once"
+    argocd.vm.provision "shell", inline: $script_install_kind, run: "once"
+    argocd.vm.provision "shell", inline: $script_create_kind_argocd, run: "once"
+  end
+  
+  config.vm.define "development" do |development|
+    development.vm.box = "generic/ubuntu2204"
+    development.vm.hostname = "development"
+    development.vm.network :private_network, ip: "192.168.121.16"
+    development.vm.provision "shell", inline: $script_kubectl, run: "once"
+    development.vm.provision "shell", inline: $script_docker, run: "once"
+    development.vm.provision "shell", inline: $script_install_kind, run: "once"
+    development.vm.provision "shell", inline: $script_create_kind_development, run: "once"
+  end
+end

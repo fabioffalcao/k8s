@@ -1,0 +1,12 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: development
+  namespace: argocd
+spec:
+  destinations:
+  - name: Development
+    namespace: '*'
+    server: https://192.168.121.16:6443
+  sourceRepos:
+  - https://github.com/fabioffalcao/k8s.git

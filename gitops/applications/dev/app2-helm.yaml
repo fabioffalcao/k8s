@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: helm-app2
+spec:
+  project: development
+  sources:
+    - repoURL: 192.168.121.14/helm
+      chart: nginx-chart
+      targetRevision: 1.0.0
+    - repoURL: https://github.com/fabioffalcao/k8s.git
+      targetRevision: main
+      ref: valuesrepo
+  destination:
+    server: https://192.168.121.16:6443
+    namespace: dev
+  sourceRef:
+    helm:
+      valueFiles:
+        - $valuesrepo/helm/environments/dev/dev-values.yaml
+  syncPolicy:
+    automated:
+      enabled: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

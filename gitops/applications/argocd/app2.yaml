@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd-app2
+spec:
+  project: argocd
+  source:
+    repoURL: https://github.com/fabioffalcao/k8s.git
+    targetRevision: main
+    path: agitops/app-manifests/argocd/app2
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
