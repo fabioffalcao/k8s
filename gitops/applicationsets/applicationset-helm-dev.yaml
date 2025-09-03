@@ -19,17 +19,16 @@ spec:
         namespace: '{{namespace}}'
       sources:
         # Helm repository
-        - repoURL: 'https://192.168.121.14/helm'
+        - repoURL: '192.168.121.14/helm'
           chart: nginx-chart
           targetRevision: "*"
+          helm:
+            valueFiles:
+              - '$valuesrepo/helm/environments/dev/dev-values.yaml'
         # Value files repository
         - repoURL: 'https://github.com/fabioffalcao/k8s.git'
           targetRevision: main
           ref: valuesrepo
-      sourceRef:
-        helm:
-          valueFiles:
-            - '$valuesrepo/helm/environments/dev/dev-values.yaml'
       syncPolicy:
         automated:
           prune: true
