@@ -7,17 +7,16 @@ spec:
   sources:
     - repoURL: 192.168.121.14/helm
       chart: nginx-chart
-      targetRevision: 1.0.0
+      targetRevision: 0.1.0
+      helm:
+        valueFiles:
+          - $valuesrepo/helm/environments/dev/dev-values.yaml
     - repoURL: https://github.com/fabioffalcao/k8s.git
       targetRevision: main
       ref: valuesrepo
   destination:
     server: https://192.168.121.16:6443
     namespace: dev
-  sourceRef:
-    helm:
-      valueFiles:
-        - $valuesrepo/helm/environments/dev/dev-values.yaml
   syncPolicy:
     automated:
       enabled: true
