@@ -1,6 +1,10 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
+  annotations:
+    argocd-image-updater.argoproj.io/image-list: nginx=192.168.121.14/helm/nginx:latest
+    argocd-image-updater.argoproj.io/nginx.update-strategy: latest
+    argocd-image-updater.argoproj.io/write-back-method: argocd
   name: apps-helm-prod
   namespace: argocd
 spec:
@@ -13,9 +17,9 @@ spec:
     metadata:
       name: '{{name}}'
     spec:
-      project: argocd
+      project: production
       destination:
-        server: https://192.168.121.16:6443
+        server: https://192.168.121.17:6443
         namespace: '{{namespace}}'
       sources:
         # Helm repository

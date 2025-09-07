@@ -1,3 +1,4 @@
+#############################################################################################
 #DOCKER
 $script_docker = <<-SCRIPT
 echo Docker Prerequisites...
@@ -24,7 +25,7 @@ sudo systemctl enable docker
 sudo systemctl daemon-reload
 sudo systemctl restart docker
 SCRIPT
-
+#############################################################################################
 #KUBECTL
 $script_kubectl = <<-SCRIPT
 echo Installing kubectl...
@@ -47,7 +48,7 @@ echo `kubectl version --client`
 
 echo "alias k='kubectl'" >> /home/vagrant/.bashrc
 SCRIPT
-
+#############################################################################################
 #HARBOR
 $script_harbor = <<-SCRIPT
 echo Getting Harbor files...
@@ -75,7 +76,7 @@ EOF
 sudo openssl req -newkey rsa:2048 -nodes -keyout /etc/ssl/private/harbor.key -x509 -days 3650 -out /etc/ssl/private/harbor.crt -config /home/vagrant/san.cnf
 
 SCRIPT
-
+#############################################################################################
 #INSTALL KIND
 $script_install_kind = <<-SCRIPT
 echo Installing KIND...
@@ -93,10 +94,10 @@ sudo tar xzpvf /home/vagrant/cloud-provider-kind_0.7.0_linux_amd64.tar.gz -C /us
 sleep 3
 sudo /usr/local/bin/cloud-provider-kind -enable-lb-port-mapping &
 SCRIPT
-
+#############################################################################################
 #CREATE KIND CLUSTER ARGOCD
 $script_create_kind_argocd = <<-SCRIPT
-cat <<EOF > /home/vagrant/kind.yaml
+cat <<EOF > /home/vagrant/argocd.yaml
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: argocd
@@ -120,7 +121,7 @@ EOF
 
 kind create cluster --config /home/vagrant/argocd.yaml
 SCRIPT
-
+#############################################################################################
 #KIND_DEVELOPMENT
 $script_create_kind_development = <<-SCRIPT
 cat <<EOF > /home/vagrant/development.yaml
@@ -145,9 +146,43 @@ containerdConfigPatches:
       endpoint = ["http://192.168.121.14"]
 EOF
 
-kind create cluster --config /home/vagrant/argocd.yaml
+kind create cluster --config /home/vagrant/development.yaml
+SCRIPT
+#############################################################################################
+#KIND_PRODUCTION
+$script_create_kind_production = <<-SCRIPT
+cat <<EOF > /home/vagrant/production.yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: production
+networking:
+  apiServerAddress: "192.168.121.17"
+  apiServerPort: 6443
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+containerdConfigPatches:
+  - |-
+    [plugins."io.containerd.grpc.v1.cri".registry.mirrors."192.168.121.14"]
+      endpoint = ["http://192.168.121.14"]
+EOF
+
+kind create cluster --config /home/vagrant/production.yaml
+SCRIPT
+#############################################################################################
+#INSTALL ARGOCD CLI
+$script_install_argocd_cli = <<-SCRIPT
+curl -sSL -o /home/vagrant/argocd-linux-amd64 https://github.com/argoproj/argo-cd/releases/latest/download/argocd-linux-amd64
+sudo install -m 555 /home/vagrant/argocd-linux-amd64 /usr/local/bin/argocd
 SCRIPT
 
+#############################################################################################
 Vagrant.configure("2") do |config|
   config.vm.define "harbor" do |harbor|
     harbor.vm.box = "generic/ubuntu2204"
@@ -165,6 +200,7 @@ Vagrant.configure("2") do |config|
     argocd.vm.provision "shell", inline: $script_docker, run: "once"
     argocd.vm.provision "shell", inline: $script_install_kind, run: "once"
     argocd.vm.provision "shell", inline: $script_create_kind_argocd, run: "once"
+    argocd.vm.provision "shell", inline: $script_install_argocd_cli, run: "once"
   end
   
   config.vm.define "development" do |development|
@@ -175,5 +211,17 @@ Vagrant.configure("2") do |config|
     development.vm.provision "shell", inline: $script_docker, run: "once"
     development.vm.provision "shell", inline: $script_install_kind, run: "once"
     development.vm.provision "shell", inline: $script_create_kind_development, run: "once"
+    development.vm.provision "shell", inline: $script_install_argocd_cli, run: "once"
+  end
+
+  config.vm.define "production" do |production|
+    production.vm.box = "generic/ubuntu2204"
+    production.vm.hostname = "production"
+    production.vm.network :private_network, ip: "192.168.121.17"
+    production.vm.provision "shell", inline: $script_kubectl, run: "once"
+    production.vm.provision "shell", inline: $script_docker, run: "once"
+    production.vm.provision "shell", inline: $script_install_kind, run: "once"
+    production.vm.provision "shell", inline: $script_create_kind_production, run: "once"
+    production.vm.provision "shell", inline: $script_install_argocd_cli, run: "once"
   end
 end
