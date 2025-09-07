@@ -2,7 +2,7 @@ apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
   annotations:
-    argocd-image-updater.argoproj.io/image-list: nginx=192.168.121.14/helm/nginx:latest
+    argocd-image-updater.argoproj.io/image-list: nginx=192.168.121.14/helm/nginx:~0.4
     argocd-image-updater.argoproj.io/nginx.update-strategy: latest
     argocd-image-updater.argoproj.io/write-back-method: argocd
   name: apps-helm-prod
