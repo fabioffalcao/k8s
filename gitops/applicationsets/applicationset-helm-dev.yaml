@@ -1,10 +1,6 @@
 apiVersion: argoproj.io/v1alpha1
 kind: ApplicationSet
 metadata:
-  annotations:
-    argocd-image-updater.argoproj.io/image-list: nginx=192.168.121.14/helm/nginx:latest
-    argocd-image-updater.argoproj.io/nginx.update-strategy: latest
-    argocd-image-updater.argoproj.io/write-back-method: argocd
   name: apps-helm-dev
   namespace: argocd
 spec:
@@ -16,6 +12,14 @@ spec:
   template:
     metadata:
       name: '{{name}}'
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: nginx=192.168.121.14/helm/nginx:~0.5
+        argocd-image-updater.argoproj.io/nginx.update-strategy: latest
+        argocd-image-updater.argoproj.io/write-back-method: argocd
+        notifications.argoproj.io/subscribe.on-deployed.slack: '#notifications'
+        notifications.argoproj.io/subscribe.on-sync-failed.slack: '#notifications'
+        notifications.argoproj.io/subscribe.on-sync-succeeded.slack: '#notifications'
+        notifications.argoproj.io/subscribe.on-health-degraded.slack: '#notifications'
     spec:
       project: development
       destination:
