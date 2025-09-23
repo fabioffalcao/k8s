@@ -1,4 +1,4 @@
-terraform {
+terraform { 
   required_version = ">= 1.3"
   required_providers {
     aws = {
@@ -6,6 +6,13 @@ terraform {
       version = "~> 5.0"
     }
   }
+
+  cloud { 
+    organization = "techmatters" 
+    workspaces { 
+      name = "tm-poc" 
+    } 
+  } 
 }
 
 provider "aws" {
@@ -25,7 +32,7 @@ data "aws_ami" "amazon_linux_2" {
     name   = "root-device-type"
     values = ["ebs"]
   }
-  
+
   filter {
     name   = "virtualization-type"
     values = ["hvm"]
