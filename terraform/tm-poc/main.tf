@@ -27,6 +27,13 @@ data "aws_ami" "amazon_linux_2" {
   }
 }
 
+data "aws_subnets" "available" {
+  filter {
+    name   = "vpc-id"
+    values = [var.vpc_id]
+  }
+}
+
 module "ec2_instance" {
   source  = "terraform-aws-modules/ec2-instance/aws"
   version = "~> 5.0"
@@ -36,7 +43,7 @@ module "ec2_instance" {
   instance_type  = "t2.micro"
   key_name       = var.key_pair_name
 
-  subnet_id      = var.subnet_id
+  subnet_id      = data.aws_subnets.available.ids[0]
 
   vpc_security_group_ids = [module.security_group.security_group_id]
 
